@@ -3,16 +3,34 @@ name: Telegram Relay
 on:
   repository_dispatch:
     types: [send-telegram]
+  schedule:
+    - cron: '0 15 * * 6'
 
 jobs:
   send:
     runs-on: ubuntu-latest
     steps:
+      - name: Determine message
+        id: msg
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            {
+              echo "text<<EOF"
+              echo "Recordatorio semanal: revisa las deudas pendientes (mano de obra y fletes) en la Bitacora de Campo y paga lo que corresponda hoy."
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "text<<EOF"
+              echo "${{ github.event.client_payload.message }}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
       - name: Send Telegram message
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          MESSAGE: ${{ github.event.client_payload.message }}
+          MESSAGE: ${{ steps.msg.outputs.text }}
         run: |
           curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
